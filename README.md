@@ -15,6 +15,7 @@
 - [Supported Type Mappings](#supported-type-mappings)
 - [Supported Enum](#supported-enum)
   - [Troubleshooting with Enum and sqlalchemy](#troubleshooting-with-enum-and-sqlalchemy)
+- [Support for inheritance](#support-for-inheritance)
 - [Planned Supported Mappings](#planned-supported-mappings)
 - [Unsupported/Rejected Mappings](#unsupportedrejected-mappings)
 - [Contributing](#contributing)
@@ -201,6 +202,45 @@ class AnimalSpecies(Interface, Enum):
       return hash(self.name)
 ```
 
+## Support for inheritance
+
+Inheritance is supported only with classes also parsed in the process. For example below, `BaseModel` will not be extended as this class doesn't exist in the file.
+
+```python
+@dataclass
+class Simple0(Interface):
+    a: int
+    b: str
+
+
+@dataclass
+class Simple1(Interface):
+    c: int
+
+
+@dataclass
+class Simple2(BaseModel, Simple0, Simple1, Interface):
+    d: str
+
+```
+
+Above python code will be transformed like bellow typescript code :
+
+```typescript
+export interface Simple0 {
+  a: number;
+  b: string;
+}
+
+export interface Simple1 {
+  c: number;
+}
+
+export interface Simple2 extends Simple0, Simple1 {
+  d: string;
+}
+```
+
 ## Planned Supported Mappings
 
 - String literals
@@ -217,7 +257,6 @@ moving back and forth from client to server. Many of these features, whether the
 - void
 - callables/functions
 - Dates, datetime, dates, times (send these over as strings and convert them to richer objects on the client)
-- extends
 - generics, TypeVars
 - intersection types
 - mapped types
