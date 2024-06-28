@@ -1,6 +1,6 @@
 import warnings
 from collections import deque
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import astroid
 
@@ -37,12 +37,19 @@ SUBSCRIPT_FORMAT_MAP: Dict[str, str] = {
 
 InterfaceAttributes = Dict[str, str]
 PreparedInterfaces = Dict[str, InterfaceAttributes]
+PossibleInterfaceReferences = Dict[str, List[str]]
+
+
+class ParsedAnnAssign(NamedTuple):
+    attr_name: str
+    attr_type: str
 
 
 class Parser:
     def __init__(self, interface_qualname: str) -> None:
         self.interface_qualname = interface_qualname
         self.prepared: PreparedInterfaces = {}
+        self.possible_interface_references: PossibleInterfaceReferences = {}
 
     def parse(self, code: str) -> None:
         queue = deque([astroid.parse(code)])
@@ -71,15 +78,14 @@ class Parser:
                 )
                 continue
 
-            self.prepared[current.name] = get_types_from_classdef(current)
-        ensure_possible_interface_references_valid(self.prepared)
+            self.prepared[current.name] = self.get_types_from_classdef(current)
 
     def flush(self, should_export: bool) -> str:
         serialized: List[str] = []
 
         for interface, attributes in self.prepared.items():
             s = "export " if should_export else ""
-            s = f"interface {interface} {{\n"
+            s += f"interface {interface} {{\n"
             for attribute_name, attribute_type in attributes.items():
                 s += f"    {attribute_name}: {attribute_type};\n"
             s += "}"
@@ -88,97 +94,159 @@ class Parser:
         self.prepared.clear()
         return "\n\n".join(serialized).strip() + "\n"
 
+    def get_types_from_classdef(self, node: astroid.ClassDef) -> Dict[str, str]:
+        serialized_types: Dict[str, str] = {}
+        for child in node.body:
+            if not isinstance(child, astroid.AnnAssign):
+                continue
+            child_name, child_type = self.parse_annassign_node(child, node.name)
 
-def get_types_from_classdef(node: astroid.ClassDef) -> Dict[str, str]:
-    serialized_types: Dict[str, str] = {}
-    for child in node.body:
-        if not isinstance(child, astroid.AnnAssign):
-            continue
-        child_name, child_type = parse_annassign_node(child)
-        serialized_types[child_name] = child_type
-    return serialized_types
+            serialized_types[child_name] = child_type
+        return serialized_types
 
-
-class ParsedAnnAssign(NamedTuple):
-    attr_name: str
-    attr_type: str
-
-
-def parse_annassign_node(node: astroid.AnnAssign) -> ParsedAnnAssign:
-    def helper(
-        node: astroid.node_classes.NodeNG,
-    ) -> Union[str, PossibleInterfaceReference]:
-        type_value = "UNKNOWN"
-
-        if isinstance(node, astroid.Name):
-            # When the node is of an astroid.Name type, it could have a
-            # name that exists in our TYPE_MAP, it could have a name that
-            # refers to another class previously defined in the source, or
-            # it could be a forward reference to a class that has yet to
-            # be parsed.
-            # We will have to assume it is a valid forward reference now and
-            # then just double check that it does indeed reference another
-            # Interface class as a post-parse step.
-            type_value = TYPE_MAP.get(node.name, PossibleInterfaceReference(node.name))
-            if node.name == "Union":
-                warnings.warn(
-                    "Came across an annotation for Union without any indexed types!"
-                    " Coercing the annotation to any.",
-                    UserWarning,
+    def parse_annassign_node(
+        self, node: astroid.AnnAssign, parent_name: str
+    ) -> ParsedAnnAssign:
+        def helper(
+            node: astroid.node_classes.NodeNG,
+        ) -> Tuple[Union[str, PossibleInterfaceReference], List[str]]:
+            type_value = "UNKNOWN"
+            possible_interface_references: List[str] = []
+            if isinstance(node, astroid.Name):
+                # When the node is of an astroid.Name type, it could have a
+                # name that exists in our TYPE_MAP, it could have a name that
+                # refers to another class previously defined in the source, or
+                # it could be a forward reference to a class that has yet to
+                # be parsed.
+                # We will have to assume it is a valid forward reference now and
+                # then just double check that it does indeed reference another
+                # Interface class as a post-parse step.
+                type_value = TYPE_MAP.get(
+                    node.name, PossibleInterfaceReference(node.name)
                 )
+                if node.name == "Union":
+                    warnings.warn(
+                        "Came across an annotation for Union without any indexed types!"
+                        " Coercing the annotation to any.",
+                        UserWarning,
+                    )
 
-        elif isinstance(node, astroid.Const) and node.name == "str":
-            # When the node is of an astroid.Const type, it could be one of
-            # num, str, bool, None, or bytes.
-            # If it is Const.str, then it is possible that the value is a
-            # reference to a class previously defined in the source or it could
-            # be a forward reference to a class that has yet to be parsed.
-            type_value = PossibleInterfaceReference(node.value)
+            elif isinstance(node, astroid.Const) and node.name == "str":
+                # When the node is of an astroid.Const type, it could be one of
+                # num, str, bool, None, or bytes.
+                # If it is Const.str, then it is possible that the value is a
+                # reference to a class previously defined in the source or it could
+                # be a forward reference to a class that has yet to be parsed.
+                type_value = PossibleInterfaceReference(node.value)
 
-        elif isinstance(node, astroid.Subscript):
-            subscript_value = node.value
-            type_format = SUBSCRIPT_FORMAT_MAP[subscript_value.name]
-            type_value = type_format % helper(node.slice)
+            elif isinstance(node, astroid.Subscript):
+                subscript_value = node.value
+                type_format = SUBSCRIPT_FORMAT_MAP[subscript_value.name]
+                subscript_type, subscript_possible_interface_references = helper(
+                    node.slice
+                )
+                possible_interface_references.extend(
+                    subscript_possible_interface_references
+                )
+                type_value = type_format % subscript_type
 
-        elif isinstance(node, astroid.Tuple):
-            inner_types = get_inner_tuple_types(node)
-            delimiter = get_inner_tuple_delimiter(node)
+            elif isinstance(node, astroid.Tuple):
+                (
+                    inner_types,
+                    inner_possible_interface_references,
+                ) = get_inner_tuple_types(node)
+                possible_interface_references.extend(
+                    inner_possible_interface_references
+                )
+                delimiter = get_inner_tuple_delimiter(node)
+                if delimiter == " | ":
+                    inner_types_deduplicated = []
 
-            if delimiter == " | ":
-                inner_types_deduplicated = []
+                    # Deduplicate inner types using a list to preserve order
+                    for inner_type in inner_types:
+                        if inner_type not in inner_types_deduplicated:
+                            inner_types_deduplicated.append(inner_type)
 
-                # Deduplicate inner types using a list to preserve order
-                for inner_type in inner_types:
-                    if inner_type not in inner_types_deduplicated:
-                        inner_types_deduplicated.append(inner_type)
+                    inner_types = inner_types_deduplicated
 
-                inner_types = inner_types_deduplicated
+                if delimiter != "UNKNOWN":
+                    type_value = delimiter.join(inner_types)
 
-            if delimiter != "UNKNOWN":
-                type_value = delimiter.join(inner_types)
+            if isinstance(type_value, PossibleInterfaceReference):
+                possible_interface_references.append(type_value)
 
-        return type_value
+            return type_value, possible_interface_references
 
-    def get_inner_tuple_types(tuple_node: astroid.Tuple) -> List[str]:
-        # avoid using Set to keep order. We also want repetitions
-        # to avoid problems with tuples where repeated types do have
-        # a meaning (e.g., Dict[int, int]).
-        inner_types: List[str] = []
-        for child in tuple_node.get_children():
-            inner_types.append(helper(child))
+        def get_inner_tuple_types(
+            tuple_node: astroid.Tuple,
+        ) -> Tuple[List[str], List[str]]:
+            # avoid using Set to keep order. We also want repetitions
+            # to avoid problems with tuples where repeated types do have
+            # a meaning (e.g., Dict[int, int]).
+            inner_types: List[str] = []
+            inner_possible_interface_references: List[str] = []
+            for child in tuple_node.get_children():
+                child_attr_type, child_possible_interface_references = helper(child)
+                inner_possible_interface_references.extend(
+                    child_possible_interface_references
+                )
+                inner_types.append(child_attr_type)
 
-        return inner_types
+            return inner_types, inner_possible_interface_references
 
-    def get_inner_tuple_delimiter(tuple_node: astroid.Tuple) -> str:
-        parent_subscript_name = tuple_node.parent.value.name
-        delimiter = "UNKNOWN"
-        if parent_subscript_name in {"Dict", "Tuple"}:
-            delimiter = ", "
-        elif parent_subscript_name == "Union":
-            delimiter = " | "
-        return delimiter
+        def get_inner_tuple_delimiter(tuple_node: astroid.Tuple) -> str:
+            parent_subscript_name = tuple_node.parent.value.name
+            delimiter = "UNKNOWN"
+            if parent_subscript_name in {"Dict", "Tuple"}:
+                delimiter = ", "
+            elif parent_subscript_name == "Union":
+                delimiter = " | "
+            return delimiter
 
-    return ParsedAnnAssign(node.target.name, helper(node.annotation))
+        attr_type, possible_interface_references = helper(node.annotation)
+        if len(possible_interface_references) > 0:
+            for possible_interface_reference in possible_interface_references:
+                if (
+                    possible_interface_reference in self.possible_interface_references
+                    and parent_name
+                    not in self.possible_interface_references[
+                        possible_interface_reference
+                    ]
+                ):
+                    # We append the list only if :
+                    # - the list for this possible_interface_reference already exists
+                    # - the parent_name is not already in the list
+                    self.possible_interface_references[
+                        possible_interface_reference
+                    ].append(parent_name)
+                elif (
+                    possible_interface_reference
+                    not in self.possible_interface_references
+                ):
+                    # If the list for this possible_interface_reference doesn't exists,
+                    # we create it and add the first parent_name
+                    self.possible_interface_references[possible_interface_reference] = [
+                        parent_name
+                    ]
+
+        return ParsedAnnAssign(node.target.name, attr_type)
+
+    def ensure_possible_interface_references_valid(self) -> None:
+        interface_names = set(self.prepared.keys())
+        for (
+            possible_interface_reference,
+            interfaces_that_use_this_reference,
+        ) in self.possible_interface_references.items():
+            if possible_interface_reference not in interface_names:
+
+                raise RuntimeError(
+                    f"Invalid nested Interface reference "
+                    f"'{possible_interface_reference}' found in interface"
+                    f"{'s' if len(interfaces_that_use_this_reference) > 1 else ''}"
+                    f" {', '.join(interfaces_that_use_this_reference)}!\n"
+                    f"Does '{possible_interface_reference}' exist "
+                    f"and is it an Interface?"
+                )
 
 
 def has_dataclass_decorator(decorators: Optional[astroid.Decorators]) -> bool:
@@ -193,19 +261,3 @@ def has_dataclass_decorator(decorators: Optional[astroid.Decorators]) -> bool:
         )
         for decorator in decorators.nodes
     )
-
-
-def ensure_possible_interface_references_valid(interfaces: PreparedInterfaces) -> None:
-    interface_names = set(interfaces.keys())
-
-    for interface, attributes in interfaces.items():
-        for attribute_name, attribute_type in attributes.items():
-            if not isinstance(attribute_type, PossibleInterfaceReference):
-                continue
-
-            if attribute_type not in interface_names:
-                raise RuntimeError(
-                    f"Invalid nested Interface reference '{attribute_type}'"
-                    f" found for interface {interface}!\n"
-                    f"Does '{attribute_type}' exist and is it an Interface?"
-                )

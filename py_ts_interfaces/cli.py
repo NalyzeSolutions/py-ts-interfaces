@@ -17,6 +17,8 @@ def main() -> None:
     for code in read_code_from_files(sorted(get_paths_to_py_files(args.paths))):
         interface_parser.parse(code)
 
+    interface_parser.ensure_possible_interface_references_valid()
+
     result = interface_parser.flush(args.should_export)
     if not result:
         warnings.warn("Did not have anything to write to the file!", UserWarning)
