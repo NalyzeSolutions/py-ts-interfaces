@@ -1,7 +1,7 @@
 from copy import deepcopy
 from itertools import count
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from astroid import AnnAssign, ClassDef, extract_node
@@ -9,10 +9,8 @@ from astroid import AnnAssign, ClassDef, extract_node
 from py_ts_interfaces import Interface, Parser
 from py_ts_interfaces.parser import (
     PossibleInterfaceReference,
+    PossibleInterfaceReferences,
     PreparedInterfaces,
-    ensure_possible_interface_references_valid,
-    get_types_from_classdef,
-    parse_annassign_node,
 )
 from py_ts_interfaces.tests import utils
 
@@ -99,7 +97,7 @@ TEST_SEVEN = """
     from py_ts_interfaces import Interface
 
     @dataclass
-    class Foo(Interface):  #@
+    class Bar(Interface):  #@
         def foo(self) -> None:
             pass
 
@@ -161,28 +159,100 @@ TEST_TEN = """
         three: Three
 """
 
+TEST_ENUM = """
+    from dataclasses import dataclass
+    from enum import Enum
+
+    from py_ts_interfaces import Interface
+
+    @dataclass
+    class Animal(Interface, Enum):
+        DOG = "dog"
+        CAT = "cat"
+"""
+
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize(
-    "code, expected_call_count",
+    "code, expected_call_count, expected_prepared",
     [
-        (TEST_ONE, 0),
-        (TEST_TWO, 0),
-        (TEST_THREE, 1),
-        (TEST_FOUR, 3),
-        (TEST_FIVE, 0),
-        (TEST_EIGHT, 1),
-        (TEST_NINE, 2),
-        (TEST_TEN, 4),
+        (TEST_ONE, 0, {}),
+        (TEST_TWO, 0, {}),
+        (TEST_THREE, 1, {"Foo": ANY}),
+        (TEST_FOUR, 3, {"Foo": ANY, "Bar": ANY, "Child2": ANY}),
+        (TEST_FIVE, 0, {}),
+        (TEST_EIGHT, 1, {"Foo": ANY}),
+        (TEST_NINE, 2, {"Foo": ANY, "Bar": ANY}),
+        (TEST_TEN, 4, {"One": ANY, "Two": ANY, "Three": ANY, "All": ANY}),
     ],
 )
 def test_parser_parse(
-    code: str, expected_call_count: int, interface_qualname: str
+    code: str, expected_call_count: int, expected_prepared: Any, interface_qualname: str
 ) -> None:
     parser = Parser(interface_qualname)
-    with patch("py_ts_interfaces.parser.get_types_from_classdef") as mock_writer:
+    with patch.object(Parser, "get_types_from_classdef") as mock_writer:
         parser.parse(code=code)
         assert mock_writer.call_count == expected_call_count
+        assert parser.prepared == expected_prepared
+
+
+@pytest.mark.filterwarnings("ignore::UserWarning")
+@pytest.mark.parametrize(
+    "code, expected_call_count, expected_prepared",
+    [
+        (TEST_ENUM, 0, {"enum Animal": {"CAT": "cat", "DOG": "dog"}}),
+    ],
+)
+def test_parser_parse_enum(
+    code: str, expected_call_count: int, expected_prepared: Any, interface_qualname: str
+) -> None:
+    parser = Parser(interface_qualname)
+    with patch.object(Parser, "get_types_from_classdef") as mock_writer:
+        parser.parse(code=code)
+        assert mock_writer.call_count == expected_call_count
+        assert parser.prepared == expected_prepared
+
+
+@pytest.mark.parametrize(
+    "prepared_mocks, expected",
+    [
+        ({"abc": {"def": "ghi"}}, """export interface abc {\n    def: ghi;\n}\n"""),
+        (
+            {"abc": {"def": "ghi", "jkl": "mno"}},
+            """export interface abc {\n    def: ghi;\n    jkl: mno;\n}\n""",
+        ),
+        ({"abc": {}}, """export interface abc {\n}\n"""),
+        (
+            {"abc": {"def": PossibleInterfaceReference("ghi")}, "ghi": {"jkl": "mno"}},
+            """export interface abc {\n    def: ghi;\n}\n\n"""
+            """export interface ghi {\n    jkl: mno;\n}\n""",
+        ),
+        (
+            {"enum Animal": {"CAT": "cat", "DOG": "dog"}},
+            """export enum Animal {\n    CAT = "cat",\n    DOG = "dog",\n}\n""",
+        ),
+        (
+            {
+                "abc": {"def": PossibleInterfaceReference("ghi")},
+                "ghi": {"jkl": "mno"},
+                "enum pqr": {"stu": "vwx"},
+            },
+            """export interface abc {\n    def: ghi;\n}\n\n"""
+            """export interface ghi {\n    jkl: mno;\n}\n\n"""
+            """export enum pqr {\n    stu = "vwx",\n}\n""",
+        ),
+    ],
+)
+def test_parser_flush_with_export(
+    prepared_mocks: Any, expected: str, interface_qualname: str
+) -> None:
+    """
+    When the parser flushes its prepared interfaces, it should generate
+    valid TS interfaces.
+    """
+    parser = Parser(interface_qualname)
+    parser.prepared = prepared_mocks
+    assert parser.flush(True) == expected
 
 
 @pytest.mark.parametrize(
@@ -199,9 +269,23 @@ def test_parser_parse(
             """interface abc {\n    def: ghi;\n}\n\n"""
             """interface ghi {\n    jkl: mno;\n}\n""",
         ),
+        (
+            {"enum Animal": {"CAT": "cat", "DOG": "dog"}},
+            """enum Animal {\n    CAT = "cat",\n    DOG = "dog",\n}\n""",
+        ),
+        (
+            {
+                "abc": {"def": PossibleInterfaceReference("ghi")},
+                "ghi": {"jkl": "mno"},
+                "enum pqr": {"stu": "vwx"},
+            },
+            """interface abc {\n    def: ghi;\n}\n\n"""
+            """interface ghi {\n    jkl: mno;\n}\n\n"""
+            """enum pqr {\n    stu = "vwx",\n}\n""",
+        ),
     ],
 )
-def test_parser_flush(
+def test_parser_flush_without_export(
     prepared_mocks: Any, expected: str, interface_qualname: str
 ) -> None:
     """
@@ -210,103 +294,170 @@ def test_parser_flush(
     """
     parser = Parser(interface_qualname)
     parser.prepared = prepared_mocks
-    assert parser.flush() == expected
+    assert parser.flush(False) == expected
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize(
-    "code, expected",
+    "code, expected, expected_possible_interface_references",
     [
-        ("baz: str", ("baz", "string")),
-        ("ace: int", ("ace", "number")),
-        ("ace: float", ("ace", "number")),
-        ("ace: complex", ("ace", "number")),
-        ("ace: bool", ("ace", "boolean")),
-        ("ace: Any", ("ace", "any")),
-        ("foo: List", ("foo", "Array<any>")),
-        ("foo: Dict", ("foo", "Record<any, any>")),
-        ("bar: Tuple", ("bar", "[any]")),
-        ("foo: List[str]", ("foo", "Array<string>")),
-        ("bar: Tuple[str, int]", ("bar", "[string, number]")),
-        ("baz: Optional[str]", ("baz", "string | null")),
-        ("ace: Optional[int]", ("ace", "number | null")),
-        ("ace: Optional[float]", ("ace", "number | null")),
-        ("ace: Optional[complex]", ("ace", "number | null")),
-        ("ace: Optional[bool]", ("ace", "boolean | null")),
-        ("ace: Optional[Any]", ("ace", "any | null")),
-        ("foo: Dict[str, int]", ("foo", "Record<string, number>")),
-        ("foo: Dict[int, int]", ("foo", "Record<number, number>")),
-        (
-            "bar: Optional[Tuple[str, int]]",
-            ("bar", "[string, number] | null"),
-        ),
+        ("baz: str", ("baz", "string"), {}),
+        ("ace: int", ("ace", "number"), {}),
+        ("ace: float", ("ace", "number"), {}),
+        ("ace: complex", ("ace", "number"), {}),
+        ("ace: bool", ("ace", "boolean"), {}),
+        ("ace: Any", ("ace", "any"), {}),
+        ("foo: List", ("foo", "Array<any>"), {}),
+        ("foo: Dict", ("foo", "Record<any, any>"), {}),
+        ("bar: Tuple", ("bar", "[any]"), {}),
+        ("foo: List[str]", ("foo", "Array<string>"), {}),
+        ("bar: Tuple[str, int]", ("bar", "[string, number]"), {}),
+        ("baz: Optional[str]", ("baz", "string | null"), {}),
+        ("ace: Optional[int]", ("ace", "number | null"), {}),
+        ("ace: Optional[float]", ("ace", "number | null"), {}),
+        ("ace: Optional[complex]", ("ace", "number | null"), {}),
+        ("ace: Optional[bool]", ("ace", "boolean | null"), {}),
+        ("ace: Optional[Any]", ("ace", "any | null"), {}),
+        ("foo: Dict[str, int]", ("foo", "Record<string, number>"), {}),
+        ("foo: Dict[int, int]", ("foo", "Record<number, number>"), {}),
+        ("bar: Optional[Tuple[str, int]]", ("bar", "[string, number] | null"), {}),
         (
             "bar: Tuple[List[Optional[Tuple[str, int]]], str, int]",
             ("bar", "[Array<[string, number] | null>, string, number]"),
+            {},
         ),
-        ("lol: Union[str, int, float]", ("lol", "string | number")),
-        ("lol: Union", ("lol", "any")),
+        ("lol: Union[str, int, float]", ("lol", "string | number"), {}),
+        ("lol: Union", ("lol", "any"), {}),
         (
             "whatever: 'StringForward'",
             ("whatever", PossibleInterfaceReference("StringForward")),
+            {"StringForward": ["parent_name"]},
         ),
         (
             "whatever: NakedReference",
             ("whatever", PossibleInterfaceReference("NakedReference")),
+            {"NakedReference": ["parent_name"]},
         ),
-        ("whatever: 1234", ("whatever", "UNKNOWN")),
+        (
+            "whatever: Union[NakedReference, StringForward]",
+            ("whatever", PossibleInterfaceReference("NakedReference | StringForward")),
+            {"NakedReference": ["parent_name"], "StringForward": ["parent_name"]},
+        ),
+        ("whatever: 1234", ("whatever", "UNKNOWN"), {}),
     ],
 )
-def test_parse_annassign_node(code: str, expected: Any) -> None:
+def test_parse_annassign_node(
+    code: str, expected: Any, expected_possible_interface_references: Any
+) -> None:
+    parser = Parser(interface_qualname)
     ann_assign = extract_node(code)
     assert isinstance(ann_assign, AnnAssign)
-    assert parse_annassign_node(ann_assign) == expected
+    assert parser.parse_annassign_node(ann_assign, "parent_name") == expected
+    assert (
+        parser.possible_interface_references == expected_possible_interface_references
+    )
 
 
-@pytest.mark.parametrize("code, expected_call_count", [(TEST_SIX, 0), (TEST_SEVEN, 0)])
-def test_get_types_from_classdef(code: str, expected_call_count: int) -> None:
-    class_def = extract_node(code)
-    assert isinstance(class_def, ClassDef)
-    with patch("py_ts_interfaces.parser.parse_annassign_node") as annassign_parser:
-        k, v = count(0, 2), count(1, 2)
-        annassign_parser.side_effect = lambda x: (str(next(k)), str(next(v)))
-
-        result = get_types_from_classdef(class_def)
-        assert result == {"0": "1", "2": "3", "4": "5"}
-        assert annassign_parser.call_count == 3
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_parse_annassign_node_sequence() -> None:
+    parser = Parser(interface_qualname)
+    ann_assign_0 = extract_node("whatever: Union[NakedReference, StringForward]")
+    isinstance(ann_assign_0, AnnAssign)
+    ann_assign_1 = extract_node("other: StringForward")
+    isinstance(ann_assign_1, AnnAssign)
+    ann_assign_2 = extract_node("another: List[NakedReference]")
+    isinstance(ann_assign_2, AnnAssign)
+    ann_assign_3 = extract_node("another_again: Optional[NakedReference]")
+    isinstance(ann_assign_3, AnnAssign)
+    parser.parse_annassign_node(ann_assign_0, "parent_name_0")
+    parser.parse_annassign_node(ann_assign_1, "parent_name_1")
+    parser.parse_annassign_node(ann_assign_2, "parent_name_2")
+    # NakedReference is referenced twice in parent_name_2
+    # but is stored also once in the possible_interface_references["NakedReference"]
+    parser.parse_annassign_node(ann_assign_3, "parent_name_2")
+    assert parser.possible_interface_references == {
+        "NakedReference": ["parent_name_0", "parent_name_2"],
+        "StringForward": ["parent_name_0", "parent_name_1"],
+    }
 
 
 @pytest.mark.parametrize(
-    "interfaces",
+    "code, expected_call_count, expected_node_name",
+    [(TEST_SIX, 0, "Foo"), (TEST_SEVEN, 0, "Bar")],
+)
+def test_get_types_from_classdef(
+    code: str, expected_call_count: int, expected_node_name
+) -> None:
+    parser = Parser(interface_qualname)
+    class_def = extract_node(code)
+    assert isinstance(class_def, ClassDef)
+    with patch.object(Parser, "parse_annassign_node") as annassign_parser:
+        k, v = count(0, 2), count(1, 2)
+        annassign_parser.side_effect = lambda node, parent_name: (
+            str(next(k)),
+            str(next(v)),
+        )
+
+        result = parser.get_types_from_classdef(class_def)
+        assert result == {"0": "1", "2": "3", "4": "5"}
+        assert annassign_parser.call_count == 3
+        assert annassign_parser.call_args.args == (ANY, expected_node_name)
+
+
+@pytest.mark.parametrize(
+    "interfaces, possible_interface_references",
     [
-        {"interfaceA": {"name": "str"}, "interfaceB": {"another_name": "int"}},
-        {
-            "interfaceA": {"name": PossibleInterfaceReference("interfaceB")},
-            "interfaceB": {"another_name": "int"},
-        },
-        {"interfaceA": {"name": PossibleInterfaceReference("interfaceA")}},
+        ({"interfaceA": {"name": "str"}, "interfaceB": {"another_name": "int"}}, {}),
+        (
+            {
+                "interfaceA": {"name": PossibleInterfaceReference("interfaceB")},
+                "enum TestEnum": {"another_name": "int"},
+                "interfaceB": {"another_name": "TestEnum"},
+            },
+            {"interfaceB": ["interfaceA"]},
+        ),
+        (
+            {"interfaceA": {"name": PossibleInterfaceReference("interfaceA")}},
+            {"interfaceA": ["interfaceA"]},
+        ),
     ],
 )
 def test_ensure_possible_interface_references_valid__succeeds(
     interfaces: PreparedInterfaces,
+    possible_interface_references: PossibleInterfaceReferences,
 ) -> None:
+    parser = Parser(interface_qualname)
+    parser.prepared = interfaces
+    parser.possible_interface_references = possible_interface_references
     copied_interfaces = deepcopy(interfaces)
-    ensure_possible_interface_references_valid(interfaces)
-    assert copied_interfaces == interfaces  # Make sure no mutations occurred
+    parser.ensure_possible_interface_references_valid()
+    assert copied_interfaces == parser.prepared  # Make sure no mutations occurred
 
 
 @pytest.mark.parametrize(
-    "interfaces",
+    "interfaces, possible_interface_references",
     [
-        {
-            "interfaceA": {"name": PossibleInterfaceReference("interfaceB")},
-            "interfaceB": {"another_name": PossibleInterfaceReference("interfaceC")},
-        },
-        {"interfaceA": {"name": PossibleInterfaceReference("interfaceB")}},
+        (
+            {
+                "interfaceA": {"name": PossibleInterfaceReference("interfaceB")},
+                "interfaceB": {
+                    "another_name": PossibleInterfaceReference("interfaceC")
+                },
+            },
+            {"interfaceB": ["interfaceA"], "interfaceC": ["interfaceB"]},
+        ),
+        (
+            {"interfaceA": {"name": PossibleInterfaceReference("interfaceB")}},
+            {"interfaceB": ["interfaceA"]},
+        ),
     ],
 )
 def test_ensure_possible_interface_references_valid__fails(
     interfaces: PreparedInterfaces,
+    possible_interface_references: PossibleInterfaceReferences,
 ) -> None:
     with pytest.raises(RuntimeError):
-        ensure_possible_interface_references_valid(interfaces)
+        parser = Parser(interface_qualname)
+        parser.prepared = interfaces
+        parser.possible_interface_references = possible_interface_references
+        parser.ensure_possible_interface_references_valid()
