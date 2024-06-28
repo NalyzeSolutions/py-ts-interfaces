@@ -6,6 +6,20 @@
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/cs-cordero/py-ts-interfaces/pythonpackage.yml?branch=master)
 ![PyPI](https://img.shields.io/pypi/v/py-ts-interfaces)
 
+- [What is this](#what-is-this)
+- [Installation](#installation)
+- [Motivation](#motivation)
+- [Usage](#usage)
+- [Why @dataclass?](#why-dataclass)
+- [Why define the types in Python instead of TypeScript?](#why-define-the-types-in-python-instead-of-typescript)
+- [Supported Type Mappings](#supported-type-mappings)
+- [Supported Enum](#supported-enum)
+  - [Troubleshooting with Enum and sqlalchemy](#troubleshooting-with-enum-and-sqlalchemy)
+- [Planned Supported Mappings](#planned-supported-mappings)
+- [Unsupported/Rejected Mappings](#unsupportedrejected-mappings)
+- [Contributing](#contributing)
+- [Author](#author)
+
 ## What is this?
 
 This library provides utilities that convert Python dataclasses with type
@@ -132,22 +146,23 @@ Please note that usage of `T` `U` and `V` in the table below represent
 stand-ins for actual types. They do not represent actually using generic typed
 variables.
 
-|     Python     |    Typescript    |
-| :------------: | :--------------: |
-|      None      |       null       |
-|      str       |      string      |
-|      int       |      number      |
-|     float      |      number      |
-|    complex     |      number      |
-|      bool      |     boolean      |
-|      List      |   Array\<any\>   |
-|     Tuple      |      [any]       |
-|      Dict      | Record<any, any> |
-|    List[T]     |     Array[T]     |
-|  Tuple[T, U]   |      [T, U]      |
-|   Dict[T, U]   |   Record<T, U>   |
-|  Optional[T]   |    T \| null     |
-| Union[T, U, V] |   T \| U \| V    |
+|     Python     |       Typescript        |
+| :------------: | :---------------------: |
+|      None      |          null           |
+|      str       |         string          |
+|      int       |         number          |
+|     float      |         number          |
+|    complex     |         number          |
+|      bool      |         boolean         |
+|      List      |      Array\<any\>       |
+|     Tuple      |          [any]          |
+|      Dict      |    Record<any, any>     |
+|    List[T]     |        Array[T]         |
+|  Tuple[T, U]   |         [T, U]          |
+|   Dict[T, U]   |      Record<T, U>       |
+|  Optional[T]   |        T \| null        |
+| Union[T, U, V] |       T \| U \| V       |
+|      Enum      | [enum](#supported-enum) |
 
 ## Supported Enum
 
@@ -178,7 +193,7 @@ If you want to use Enums with `Interface` class in `sqlalchemy`, you will have a
 
 ```python
 @dataclass
-class Animal(Interface, Enum):
+class AnimalSpecies(Interface, Enum):
    DOG = "dog"
    CAT = "cat"
 
