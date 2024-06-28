@@ -1,11 +1,10 @@
 from functools import wraps
-from typing import TypeVar, Callable, Any, cast
+from typing import Any, Callable, TypeVar, cast
 
-from nox_poetry import session as nox_session
 from nox_poetry import Session
+from nox_poetry import session as nox_session
 
-
-SUPPORTED_PYTHON_VERSIONS = ["3.7", "3.8", "3.9", "3.10"]
+SUPPORTED_PYTHON_VERSIONS = ["3.8", "3.9", "3.10", "3.11"]
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -15,6 +14,7 @@ def install_poetry_deps(fn: F) -> F:
     def wrapper(session: Session, *args, **kwargs):
         session.install("-r", str(session.poetry.export_requirements()))
         return fn(session, *args, **kwargs)
+
     return cast(F, wrapper)
 
 

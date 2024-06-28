@@ -14,10 +14,12 @@ def main() -> None:
 
     interface_parser = Parser(f"{Interface.__module__}.{Interface.__name__}")
 
-    for code in read_code_from_files(get_paths_to_py_files(args.paths)):
+    for code in read_code_from_files(sorted(get_paths_to_py_files(args.paths))):
         interface_parser.parse(code)
 
-    result = interface_parser.flush()
+    interface_parser.ensure_possible_interface_references_valid()
+
+    result = interface_parser.flush(args.should_export)
     if not result:
         warnings.warn("Did not have anything to write to the file!", UserWarning)
 
@@ -45,6 +47,12 @@ def get_args_namespace() -> argparse.Namespace:
         "-o, --outpath", action="store", default="interface.ts", dest="outpath"
     )
     argparser.add_argument("-a, --append", action="store_true", dest="should_append")
+    argparser.add_argument(
+        "-e, --export",
+        action="store_true",
+        dest="should_export",
+        help="whether the interface definitions should be prepended with `export`",
+    )
     return argparser.parse_args()
 
 
