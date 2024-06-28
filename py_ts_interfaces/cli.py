@@ -14,7 +14,7 @@ def main() -> None:
 
     interface_parser = Parser(f"{Interface.__module__}.{Interface.__name__}")
 
-    for code in read_code_from_files(get_paths_to_py_files(args.paths)):
+    for code in read_code_from_files(sorted(get_paths_to_py_files(args.paths))):
         interface_parser.parse(code)
 
     result = interface_parser.flush()
