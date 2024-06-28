@@ -78,17 +78,32 @@ class Parser:
                 )
                 continue
 
-            self.prepared[current.name] = self.get_types_from_classdef(current)
+            if len([base for base in current.bases if base.name == "Enum"]) > 0:
+                # Handle enum types
+                self.prepared[f"enum {current.name}"] = {}
+                for child in current.body:
+                    if isinstance(child, astroid.Assign):
+                        self.prepared[f"enum {current.name}"][
+                            child.targets[0].name
+                        ] = child.value.value
+            else:
+                self.prepared[current.name] = self.get_types_from_classdef(current)
 
     def flush(self, should_export: bool) -> str:
         serialized: List[str] = []
 
         for interface, attributes in self.prepared.items():
             s = "export " if should_export else ""
-            s += f"interface {interface} {{\n"
-            for attribute_name, attribute_type in attributes.items():
-                s += f"    {attribute_name}: {attribute_type};\n"
-            s += "}"
+            if interface.startswith("enum"):
+                s += f"{interface} {{\n"
+                for attribute_name, attribute_type in attributes.items():
+                    s += f'    {attribute_name} = "{attribute_type}",\n'
+                s += "}"
+            else:
+                s += f"interface {interface} {{\n"
+                for attribute_name, attribute_type in attributes.items():
+                    s += f"    {attribute_name}: {attribute_type};\n"
+                s += "}"
             serialized.append(s)
 
         self.prepared.clear()
@@ -233,11 +248,17 @@ class Parser:
 
     def ensure_possible_interface_references_valid(self) -> None:
         interface_names = set(self.prepared.keys())
+        # In the case of enums, interface name is prefixed with "enum"
+        # to know how to transform it in TS correctly,
+        # so we need to remove this prefix
+        interface_names_without_prefix = [
+            interface_name.replace("enum ", "") for interface_name in interface_names
+        ]
         for (
             possible_interface_reference,
             interfaces_that_use_this_reference,
         ) in self.possible_interface_references.items():
-            if possible_interface_reference not in interface_names:
+            if possible_interface_reference not in interface_names_without_prefix:
 
                 raise RuntimeError(
                     f"Invalid nested Interface reference "
