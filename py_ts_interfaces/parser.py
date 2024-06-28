@@ -23,6 +23,9 @@ TYPE_MAP: Dict[str, str] = {
     "Dict": "Record<any, any>",
     "List": "Array<any>",
     "Tuple": "[any]",
+    "dict": "Record<any, any>",
+    "list": "Array<any>",
+    "tuple": "[any]",
     "Union": "any",
 }
 
@@ -32,6 +35,9 @@ SUBSCRIPT_FORMAT_MAP: Dict[str, str] = {
     "Optional": "%s | null",
     "Tuple": "[%s]",
     "Union": "%s",
+    "dict": "Record<%s>",
+    "list": "Array<%s>",
+    "tuple": "[%s]",
 }
 
 
@@ -212,7 +218,7 @@ class Parser:
         def get_inner_tuple_delimiter(tuple_node: astroid.Tuple) -> str:
             parent_subscript_name = tuple_node.parent.value.name
             delimiter = "UNKNOWN"
-            if parent_subscript_name in {"Dict", "Tuple"}:
+            if parent_subscript_name in {"Dict", "Tuple", "dict", "tuple"}:
                 delimiter = ", "
             elif parent_subscript_name == "Union":
                 delimiter = " | "
