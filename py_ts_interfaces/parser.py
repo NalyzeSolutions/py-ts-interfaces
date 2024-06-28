@@ -74,10 +74,11 @@ class Parser:
             self.prepared[current.name] = get_types_from_classdef(current)
         ensure_possible_interface_references_valid(self.prepared)
 
-    def flush(self) -> str:
+    def flush(self, should_export: bool) -> str:
         serialized: List[str] = []
 
         for interface, attributes in self.prepared.items():
+            s = "export " if should_export else ""
             s = f"interface {interface} {{\n"
             for attribute_name, attribute_type in attributes.items():
                 s += f"    {attribute_name}: {attribute_type};\n"
@@ -185,9 +186,11 @@ def has_dataclass_decorator(decorators: Optional[astroid.Decorators]) -> bool:
         return False
 
     return any(
-        (getattr(decorator.func, "name", None) == "dataclass")
-        if isinstance(decorator, astroid.Call)
-        else decorator.name == "dataclass"
+        (
+            (getattr(decorator.func, "name", None) == "dataclass")
+            if isinstance(decorator, astroid.Call)
+            else decorator.name == "dataclass"
+        )
         for decorator in decorators.nodes
     )
 
