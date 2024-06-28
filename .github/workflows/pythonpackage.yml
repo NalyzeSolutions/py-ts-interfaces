@@ -12,18 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        curl -sSL https://install.python-poetry.org | python
-        python -m pip install --upgrade pip
-        $HOME/.local/bin/poetry install
-    - name: Run test suite
-      run: |
-        $HOME/.local/bin/poetry run ./run_tests.sh
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          curl -sSL https://install.python-poetry.org | python
+          python -m pip install --upgrade pip
+          $HOME/.local/bin/poetry install
+      - name: Run test suite
+        run: |
+          $HOME/.local/bin/poetry run ./run_tests.sh
