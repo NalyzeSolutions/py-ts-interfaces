@@ -8,9 +8,9 @@ authors = [
     'Nalyze team <opensource@nalyze.team>'
 ]
 readme = 'README.md'
-repository = 'https://github.com/NalyzeSolutions/py-ts-interfaces'
-homepage = 'https://github.com/NalyzeSolutions/py-ts-interfaces'
-documentation = 'https://github.com/NalyzeSolutions/py-ts-interfaces'
+repository = 'https://github.com/NalyzeSolutions/python_to_typescript_interfaces'
+homepage = 'https://github.com/NalyzeSolutions/python_to_typescript_interfaces'
+documentation = 'https://github.com/NalyzeSolutions/python_to_typescript_interfaces'
 keywords = ['python', 'typescript', 'interfaces']
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -47,4 +47,4 @@ nox-poetry = "1.0.1"
 typed-ast = { version = "1.5.4", python = "<3.8" }
 
 [tool.poetry.scripts]
-py-ts-interfaces = "python_to_typescript_interfaces.cli:main"
+python-to-typescript-interfaces = "python_to_typescript_interfaces.cli:main"
