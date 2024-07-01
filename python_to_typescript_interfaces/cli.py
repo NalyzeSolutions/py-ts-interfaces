@@ -4,7 +4,7 @@ import warnings
 from collections import deque
 from typing import Iterable, List, Set
 
-from py_ts_interfaces import Interface, Parser
+from python_to_typescript_interfaces import Interface, Parser
 
 
 def main() -> None:
@@ -40,7 +40,7 @@ def main() -> None:
 def get_args_namespace() -> argparse.Namespace:
     argparser = argparse.ArgumentParser(
         description="Generates TypeScript Interfaces from subclasses of"
-        " py_ts_interfaces.Interface."
+        " python_to_typescript_interfaces.Interface."
     )
     argparser.add_argument("paths", action="store", nargs="+")
     argparser.add_argument(

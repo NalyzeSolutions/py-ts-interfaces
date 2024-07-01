@@ -6,13 +6,13 @@ from unittest.mock import ANY, patch
 import pytest
 from astroid import AnnAssign, ClassDef, extract_node
 
-from py_ts_interfaces import Interface, Parser
-from py_ts_interfaces.parser import (
+from python_to_typescript_interfaces import Interface, Parser
+from python_to_typescript_interfaces.parser import (
     PossibleInterfaceReference,
     PossibleInterfaceReferences,
     PreparedInterfaces,
 )
-from py_ts_interfaces.tests import utils
+from python_to_typescript_interfaces.tests import utils
 
 
 @pytest.fixture(scope="module")
@@ -28,14 +28,14 @@ TEST_ONE = """
         pass
 """
 TEST_TWO = """
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     class Foo(Interface):
         pass
 """
 TEST_THREE = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Foo(Interface):
@@ -43,7 +43,7 @@ TEST_THREE = """
 """
 TEST_FOUR = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Foo(Interface):
@@ -80,7 +80,7 @@ TEST_FIVE = """
 
 TEST_SIX = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Foo(Interface):  #@
@@ -94,7 +94,7 @@ TEST_SIX = """
 """
 TEST_SEVEN = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Bar(Interface):  #@
@@ -108,7 +108,7 @@ TEST_SEVEN = """
 
 TEST_EIGHT = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Foo(Interface):
@@ -121,7 +121,7 @@ TEST_EIGHT = """
 
 TEST_NINE = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Foo(Interface):
@@ -135,7 +135,7 @@ TEST_NINE = """
 
 TEST_TEN = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class One(Interface):
@@ -163,7 +163,7 @@ TEST_ENUM = """
     from dataclasses import dataclass
     from enum import Enum
 
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Animal(Interface, Enum):
@@ -493,7 +493,7 @@ TEST_INHERITANCE_ONE = """
     from dataclasses import dataclass
     from enum import Enum
 
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Simple0(Interface):
@@ -509,7 +509,7 @@ TEST_INHERITANCE_TWO = """
     from dataclasses import dataclass
     from enum import Enum
 
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
 
     @dataclass
     class Class0(Interface):

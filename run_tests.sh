@@ -21,10 +21,10 @@ function capture_stdout_and_stderr_if_successful {
     set -e
 }
 
-capture_stdout_and_stderr_if_successful black --check py_ts_interfaces
-capture_stdout_and_stderr_if_successful flake8 --count py_ts_interfaces
-capture_stdout_and_stderr_if_successful mypy py_ts_interfaces
-capture_stdout_and_stderr_if_successful isort -c py_ts_interfaces
+capture_stdout_and_stderr_if_successful black --check python_to_typescript_interfaces
+capture_stdout_and_stderr_if_successful flake8 --count python_to_typescript_interfaces
+capture_stdout_and_stderr_if_successful mypy python_to_typescript_interfaces
+capture_stdout_and_stderr_if_successful isort -c python_to_typescript_interfaces
 capture_stdout_and_stderr_if_successful pytest
 
 exit $AT_LEAST_ONE_ERROR

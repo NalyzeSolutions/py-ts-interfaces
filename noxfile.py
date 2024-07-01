@@ -21,15 +21,15 @@ def install_poetry_deps(fn: F) -> F:
 @nox_session(python=SUPPORTED_PYTHON_VERSIONS)
 @install_poetry_deps
 def code_quality(session: Session) -> None:
-    session.run("black", "--check", "py_ts_interfaces")
-    session.run("flake8", "--count", "py_ts_interfaces")
-    session.run("isort", "-c", "py_ts_interfaces")
+    session.run("black", "--check", "python_to_typescript_interfaces")
+    session.run("flake8", "--count", "python_to_typescript_interfaces")
+    session.run("isort", "-c", "python_to_typescript_interfaces")
 
 
 @nox_session(python=SUPPORTED_PYTHON_VERSIONS)
 @install_poetry_deps
 def type_check(session: Session) -> None:
-    session.run("mypy", "py_ts_interfaces")
+    session.run("mypy", "python_to_typescript_interfaces")
 
 
 @nox_session(python=SUPPORTED_PYTHON_VERSIONS)

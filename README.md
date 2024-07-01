@@ -61,7 +61,7 @@ want it to be serialized to an interface file.
 ```python
 # views.py
 from dataclasses import dataclass
-from py_ts_interfaces import Interface
+from python_to_typescript_interfaces import Interface
 
 @dataclass
 class MyComponentProps(Interface):
@@ -180,7 +180,7 @@ so the order is important when you add the `Interface` class on your enum class,
 from dataclasses import dataclass
 from enum import Enum
 
-from py_ts_interfaces import Interface
+from python_to_typescript_interfaces import Interface
 
 @dataclass
 class Animal(Interface, Enum):
