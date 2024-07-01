@@ -1,10 +1,10 @@
-# py-ts-interfaces
+# python-to-typescript-interfaces
 
 ### Python to TypeScript Interfaces
 
-![MIT License](https://img.shields.io/github/license/cs-cordero/py-ts-interfaces)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/cs-cordero/py-ts-interfaces/pythonpackage.yml?branch=master)
-![PyPI](https://img.shields.io/pypi/v/py-ts-interfaces)
+![MIT License](https://img.shields.io/github/license/NalyzeSolutions/python_to_typescript_interfaces)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/NalyzeSolutions/python_to_typescript_interfaces/pythonpackage.yml?branch=master)
+![PyPI](https://img.shields.io/pypi/v/python-to-typescript-interfaces)
 
 - [What is this](#what-is-this)
 - [Installation](#installation)
@@ -30,7 +30,7 @@ annotations to a TypeScript `interface` and serializes them to a file.
 
 ```
 python --version  # requires 3.8+
-pip install py-ts-interfaces
+pip install python-to-typescript-interfaces
 ```
 
 ## Motivation
@@ -52,7 +52,7 @@ the payload between the backend and the frontend.
 
 ## Usage
 
-In Python, `py-ts-interfaces` exposes a new class object called `Interface`.
+In Python, `python-to-typescript-interfaces` exposes a new class object called `Interface`.
 By subclassing this object, you identify to the also-packaged script that you
 want it to be serialized to an interface file.
 
@@ -80,7 +80,7 @@ class WillNotGetPickedUp:  # this doesn't subclass Interface, so it won't be inc
    directory called interface.ts
 
 ```
-$ py-ts-interfaces views.py
+$ python-to-typescript-interfaces views.py
 Created interface.ts!
 ```
 
@@ -267,6 +267,7 @@ moving back and forth from client to server. Many of these features, whether the
 
 Interested in contributing? You're awesome! It's not much, but here's some notes to get you started [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Author
+## Authors
 
 [Christopher Sabater Cordero](https://chrisdoescoding.com)
+[Nalyze team](https://nalyze.team/)

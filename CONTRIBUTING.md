@@ -10,8 +10,8 @@ Check out their documentation respectively to get set up for your system. Once t
 
 ```shell
 $ cd /path/to/where/you/want/this/project
-$ git clone https://github.com/cs-cordero/py-ts-interfaces
-$ cd py-ts-interfaces
+$ git clone https://github.com/NalyzeSolutions/python_to_typescript_interfaces.git
+$ cd python_to_typescript_interfaces
 $
 $ pyenv local [at least 3.8.1]
 $ poetry install
