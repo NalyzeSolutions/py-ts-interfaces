@@ -19,12 +19,6 @@ TYPE_MAP: Dict[str, str] = {
     "int": "number",
     "float": "number",
     "complex": "number",
-    "datetime": "Date",
-    "date": "Date",
-    "time": "Date",
-    "timedelta": "Date",
-    "tzinfo": "Date",
-    "timezone": "Date",
     "Any": "any",
     "Dict": "Record<any, any>",
     "List": "Array<any>",
@@ -34,6 +28,11 @@ TYPE_MAP: Dict[str, str] = {
     "tuple": "[any]",
     "Union": "any",
 }
+
+SUPPORTED_DATE_TYPES: List[str] = [
+    "datetime",
+    "date",
+]
 
 SUBSCRIPT_FORMAT_MAP: Dict[str, str] = {
     "Dict": "Record<%s>",
@@ -58,8 +57,11 @@ class ParsedAnnAssign(NamedTuple):
 
 
 class Parser:
-    def __init__(self, interface_qualname: str) -> None:
+    def __init__(
+        self, interface_qualname: str, date_transformed_type: str = "string"
+    ) -> None:
         self.interface_qualname = interface_qualname
+        self.date_transformed_type = date_transformed_type
         self.prepared: PreparedInterfaces = {}
         self.possible_interface_references: PossibleInterfaceReferences = {}
         self.interface_inheritances: PossibleInterfaceReferences = {}
@@ -176,6 +178,11 @@ class Parser:
                 type_value = TYPE_MAP.get(
                     node.name, PossibleInterfaceReference(node.name)
                 )
+                if (
+                    isinstance(type_value, PossibleInterfaceReference)
+                    and node.name in SUPPORTED_DATE_TYPES
+                ):
+                    type_value = self.date_transformed_type
                 if node.name == "Union":
                     warnings.warn(
                         "Came across an annotation for Union without any indexed types!"

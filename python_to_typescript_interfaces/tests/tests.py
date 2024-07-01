@@ -571,7 +571,7 @@ def test_parser_parse_interface_with_inheritance(
 
 TEST_DATE_DATETIME = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
     from datetime import datetime
 
     @dataclass
@@ -580,67 +580,65 @@ TEST_DATE_DATETIME = """
 """
 TEST_DATE_DATE = """
     from dataclasses import dataclass
-    from py_ts_interfaces import Interface
+    from python_to_typescript_interfaces import Interface
     from datetime import date
 
     @dataclass
     class Foo(Interface):
         aaa: date
 """
-TEST_DATE_TIME = """
-    from dataclasses import dataclass
-    from py_ts_interfaces import Interface
-    from datetime import time
-
-    @dataclass
-    class Foo(Interface):
-        aaa: time
-"""
-TEST_DATE_TIMEDELTA = """
-    from dataclasses import dataclass
-    from py_ts_interfaces import Interface
-    from datetime import timedelta
-
-    @dataclass
-    class Foo(Interface):
-        aaa: timedelta
-"""
-TEST_DATE_TZINFO = """
-    from dataclasses import dataclass
-    from py_ts_interfaces import Interface
-    from datetime import tzinfo
-
-    @dataclass
-    class Foo(Interface):
-        aaa: tzinfo
-"""
-TEST_DATE_TIMEZONE = """
-    from dataclasses import dataclass
-    from py_ts_interfaces import Interface
-    from datetime import timezone
-
-    @dataclass
-    class Foo(Interface):
-        aaa: timezone
-"""
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize(
-    "code",
+    "code, date_transformed_type,  expected_prepared, expected_result",
     [
-        (TEST_DATE_DATETIME),
-        (TEST_DATE_DATE),
-        (TEST_DATE_TIME),
-        (TEST_DATE_TIMEDELTA),
-        (TEST_DATE_TZINFO),
-        (TEST_DATE_TIMEZONE),
+        (
+            TEST_DATE_DATETIME,
+            "string",
+            {"Foo": {"aaa": "string"}},
+            """export interface Foo {\n    aaa: string;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATE,
+            "string",
+            {"Foo": {"aaa": "string"}},
+            """export interface Foo {\n    aaa: string;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME,
+            "number",
+            {"Foo": {"aaa": "number"}},
+            """export interface Foo {\n    aaa: number;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATE,
+            "number",
+            {"Foo": {"aaa": "number"}},
+            """export interface Foo {\n    aaa: number;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME,
+            "Date",
+            {"Foo": {"aaa": "Date"}},
+            """export interface Foo {\n    aaa: Date;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATE,
+            "Date",
+            {"Foo": {"aaa": "Date"}},
+            """export interface Foo {\n    aaa: Date;\n}\n""",
+        ),
     ],
 )
-def test_parser_parse_date_types(code: str, interface_qualname: str) -> None:
-    expected_prepared = {"Foo": {"aaa": "Date"}}
-    expected_result = """export interface Foo {\n    aaa: Date;\n}\n"""
-    parser = Parser(interface_qualname)
+def test_parser_parse_date_types(
+    code: str,
+    interface_qualname: str,
+    date_transformed_type: str,
+    expected_prepared: Any,
+    expected_result: str,
+) -> None:
+    parser = Parser(interface_qualname, date_transformed_type)
     parser.parse(code=code)
     assert parser.prepared == expected_prepared
     assert parser.flush(True) == expected_result
@@ -648,23 +646,17 @@ def test_parser_parse_date_types(code: str, interface_qualname: str) -> None:
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize(
-    "code, expected, expected_possible_interface_references",
+    "code, expected",
     [
-        ("foo: List[datetime]", ("foo", "Array<Date>"), {}),
-        ("bar: Tuple[date, int]", ("bar", "[Date, number]"), {}),
-        ("baz: Optional[time]", ("baz", "Date | null"), {}),
-        ("foo: Dict[str, timezone]", ("foo", "Record<string, Date>"), {}),
-        ("bar: Optional[Tuple[timedelta, int]]", ("bar", "[Date, number] | null"), {}),
-        ("bar: Optional[tuple[str, tzinfo]]", ("bar", "[string, Date] | null"), {}),
+        ("foo: List[datetime]", ("foo", "Array<string>")),
+        ("bar: Tuple[date, int]", ("bar", "[string, number]")),
     ],
 )
 def test_parse_annassign_node_with_datetime_types(
-    code: str, expected: Any, expected_possible_interface_references: Any
+    code: str,
+    expected: Any,
 ) -> None:
     parser = Parser(interface_qualname)
     ann_assign = extract_node(code)
     assert isinstance(ann_assign, AnnAssign)
     assert parser.parse_annassign_node(ann_assign, "parent_name") == expected
-    assert (
-        parser.possible_interface_references == expected_possible_interface_references
-    )
