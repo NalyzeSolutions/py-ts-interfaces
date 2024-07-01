@@ -56,6 +56,7 @@ class Parser:
         self.interface_qualname = interface_qualname
         self.prepared: PreparedInterfaces = {}
         self.possible_interface_references: PossibleInterfaceReferences = {}
+        self.interface_inheritances: PossibleInterfaceReferences = {}
 
     def parse(self, code: str) -> None:
         queue = deque([astroid.parse(code)])
@@ -84,7 +85,18 @@ class Parser:
                 )
                 continue
 
-            if len([base for base in current.bases if base.name == "Enum"]) > 0:
+            not_interface_current_base_names = [
+                base.name for base in current.bases if base.name != "Interface"
+            ]
+            enum_in_current_bases = (
+                len([base for base in current.bases if base.name == "Enum"]) > 0
+            )
+            if len(not_interface_current_base_names) > 0 and not enum_in_current_bases:
+                self.interface_inheritances[current.name] = (
+                    not_interface_current_base_names
+                )
+
+            if enum_in_current_bases:
                 # Handle enum types
                 self.prepared[f"enum {current.name}"] = {}
                 for child in current.body:
@@ -97,6 +109,7 @@ class Parser:
 
     def flush(self, should_export: bool) -> str:
         serialized: List[str] = []
+        interface_names = set(self.prepared.keys())
 
         for interface, attributes in self.prepared.items():
             s = "export " if should_export else ""
@@ -106,7 +119,19 @@ class Parser:
                     s += f'    {attribute_name} = "{attribute_type}",\n'
                 s += "}"
             else:
-                s += f"interface {interface} {{\n"
+                extends = " "
+                if interface in self.interface_inheritances:
+                    # We keep only inheritances for which we have the interface
+                    filtered_interface_inheritances = [
+                        item
+                        for item in self.interface_inheritances[interface]
+                        if item in interface_names
+                    ]
+                    if len(filtered_interface_inheritances) > 0:
+                        extends = (
+                            f" extends {', '.join(filtered_interface_inheritances)} "
+                        )
+                s += f"interface {interface}{extends}{{\n"
                 for attribute_name, attribute_type in attributes.items():
                     s += f"    {attribute_name}: {attribute_type};\n"
                 s += "}"

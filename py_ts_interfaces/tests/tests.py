@@ -487,3 +487,83 @@ def test_ensure_possible_interface_references_valid__fails(
         parser.prepared = interfaces
         parser.possible_interface_references = possible_interface_references
         parser.ensure_possible_interface_references_valid()
+
+
+TEST_INHERITANCE_ONE = """
+    from dataclasses import dataclass
+    from enum import Enum
+
+    from py_ts_interfaces import Interface
+
+    @dataclass
+    class Simple0(Interface):
+        a: int
+        b: str
+
+    @dataclass
+    class Simple1(Simple0, Interface):
+        c: int
+"""
+
+TEST_INHERITANCE_TWO = """
+    from dataclasses import dataclass
+    from enum import Enum
+
+    from py_ts_interfaces import Interface
+
+    @dataclass
+    class Class0(Interface):
+        a: int
+        b: str
+
+    @dataclass
+    class Class1(Interface):
+        c: int
+
+    @dataclass
+    class Class2(AnotherClass, Class0, Class1, Interface):
+        d: str
+"""
+
+
+@pytest.mark.filterwarnings("ignore::UserWarning")
+@pytest.mark.parametrize(
+    "code, expected_prepared, expected_interface_inheritances, expected_result",
+    [
+        (
+            TEST_INHERITANCE_ONE,
+            {
+                "Simple0": {"a": "number", "b": "string"},
+                "Simple1": {"c": "number"},
+            },
+            {"Simple1": ["Simple0"]},
+            """export interface Simple0 {\n    a: number;\n    b: string;\n}\n\n"""
+            """export interface Simple1 extends Simple0 {\n    c: number;\n}\n""",
+        ),
+        (
+            TEST_INHERITANCE_TWO,
+            {
+                "Class0": {"a": "number", "b": "string"},
+                "Class1": {"c": "number"},
+                "Class2": {"d": "string"},
+            },
+            {"Class2": ["AnotherClass", "Class0", "Class1"]},
+            """export interface Class0 {\n    a: number;\n    b: string;\n}\n\n"""
+            """export interface Class1 {\n    c: number;\n}\n\n"""
+            """export interface Class2 extends Class0, Class1 {\n    d: string;\n}\n""",
+        ),
+    ],
+)
+def test_parser_parse_interface_with_inheritance(
+    code: str,
+    expected_prepared: Any,
+    expected_interface_inheritances: Any,
+    expected_result: str,
+    interface_qualname: str,
+) -> None:
+    parser = Parser(interface_qualname)
+    parser.parse(code=code)
+
+    assert parser.prepared == expected_prepared
+    assert parser.interface_inheritances == expected_interface_inheritances
+    assert parser.flush(True) == expected_result
