@@ -16,6 +16,7 @@
 - [Supported Enum](#supported-enum)
   - [Troubleshooting with Enum and sqlalchemy](#troubleshooting-with-enum-and-sqlalchemy)
 - [Support for inheritance](#support-for-inheritance)
+- [Support for datetime and date](#support-for-datetime-and-date)
 - [Planned Supported Mappings](#planned-supported-mappings)
 - [Unsupported/Rejected Mappings](#unsupportedrejected-mappings)
 - [Contributing](#contributing)
@@ -90,6 +91,7 @@ You may also use the following arguments:
 - `-a, --append`: by default each run will overwrite the output file. this flag
   allows only appends. Be warned, duplicate interfaces are not tested.
 - `-e, --export`: whether the interface definitions should be prepended with `export`;
+- `-dt, --date-type`: defines how date types should be tranformed to, (default: `string`);
 
 3. The resulting file will look like this:
 
@@ -147,23 +149,25 @@ Please note that usage of `T` `U` and `V` in the table below represent
 stand-ins for actual types. They do not represent actually using generic typed
 variables.
 
-|     Python     |       Typescript        |
-| :------------: | :---------------------: |
-|      None      |          null           |
-|      str       |         string          |
-|      int       |         number          |
-|     float      |         number          |
-|    complex     |         number          |
-|      bool      |         boolean         |
-|      List      |      Array\<any\>       |
-|     Tuple      |          [any]          |
-|      Dict      |    Record<any, any>     |
-|    List[T]     |        Array[T]         |
-|  Tuple[T, U]   |         [T, U]          |
-|   Dict[T, U]   |      Record<T, U>       |
-|  Optional[T]   |        T \| null        |
-| Union[T, U, V] |       T \| U \| V       |
-|      Enum      | [enum](#supported-enum) |
+|     Python     |                     Typescript                     |
+| :------------: | :------------------------------------------------: |
+|      None      |                        null                        |
+|      str       |                       string                       |
+|      int       |                       number                       |
+|     float      |                       number                       |
+|    complex     |                       number                       |
+|      bool      |                      boolean                       |
+|      List      |                    Array\<any\>                    |
+|     Tuple      |                       [any]                        |
+|      Dict      |                  Record<any, any>                  |
+|    List[T]     |                      Array[T]                      |
+|  Tuple[T, U]   |                       [T, U]                       |
+|   Dict[T, U]   |                    Record<T, U>                    |
+|  Optional[T]   |                     T \| null                      |
+| Union[T, U, V] |                    T \| U \| V                     |
+|      Enum      |              [enum](#supported-enum)               |
+|    datetime    | Default : [string](#support-for-datetime-and-date) |
+|      date      | Default : [string](#support-for-datetime-and-date) |
 
 ## Supported Enum
 
@@ -241,6 +245,44 @@ export interface Simple2 extends Simple0, Simple1 {
 }
 ```
 
+## Support for datetime and date
+
+Support for `datetime` and `date` types is available through `-dt, --date-type` flag. We have decided to add this support in a configurable way as dates can be transformed in different types depending the projet / implementation. Possible choices are `["string", "number", "Date"]` and the default one is `string` (because it's the return type of a `Date.prototype.toJSON()`).
+
+Examples with below python class:
+
+```python
+from dataclasses import dataclass
+from datetime import datetime, date
+
+from python_to_typescript_interfaces import Interface
+
+@dataclass
+class DatedModel(Interface):
+   created_at: datetime
+   updated_at: date
+```
+
+It will result in below interface:
+
+```typescript
+// Without flag
+export interface DatedModel {
+  created_at: string;
+  updated_at: string;
+}
+// With flag: -dt Date
+export interface DatedModel {
+  created_at: Date;
+  updated_at: Date;
+}
+// With flag: -dt number
+export interface DatedModel {
+  created_at: number;
+  updated_at: number;
+}
+```
+
 ## Planned Supported Mappings
 
 - String literals
@@ -256,7 +298,6 @@ moving back and forth from client to server. Many of these features, whether the
 
 - void
 - callables/functions
-- Dates, datetime, dates, times (send these over as strings and convert them to richer objects on the client)
 - generics, TypeVars
 - intersection types
 - mapped types

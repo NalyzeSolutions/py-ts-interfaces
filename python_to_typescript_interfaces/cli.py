@@ -9,10 +9,13 @@ from python_to_typescript_interfaces import Interface, Parser
 
 def main() -> None:
     args = get_args_namespace()
+
     if os.path.isdir(args.outpath):
         raise Exception(f"{args.outpath} is a directory! Aborting.")
 
-    interface_parser = Parser(f"{Interface.__module__}.{Interface.__name__}")
+    interface_parser = Parser(
+        f"{Interface.__module__}.{Interface.__name__}", args.date_transformed_type
+    )
 
     for code in read_code_from_files(sorted(get_paths_to_py_files(args.paths))):
         interface_parser.parse(code)
@@ -53,6 +56,14 @@ def get_args_namespace() -> argparse.Namespace:
         action="store_true",
         dest="should_export",
         help="whether the interface definitions should be prepended with `export`",
+    )
+    argparser.add_argument(
+        "-dt, --date-type",
+        type=str,
+        dest="date_transformed_type",
+        help="defines how date types should be tranformed to, (default: %(default)s)",
+        choices=["string", "number", "Date"],
+        default="string",
     )
     return argparser.parse_args()
 

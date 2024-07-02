@@ -29,6 +29,13 @@ TYPE_MAP: Dict[str, str] = {
     "Union": "any",
 }
 
+SUPPORTED_DATE_TYPES: List[str] = [
+    "datetime",
+    "date",
+    "datetime.datetime",
+    "datetime.date",
+]
+
 SUBSCRIPT_FORMAT_MAP: Dict[str, str] = {
     "Dict": "Record<%s>",
     "List": "Array<%s>",
@@ -52,8 +59,11 @@ class ParsedAnnAssign(NamedTuple):
 
 
 class Parser:
-    def __init__(self, interface_qualname: str) -> None:
+    def __init__(
+        self, interface_qualname: str, date_transformed_type: str = "string"
+    ) -> None:
         self.interface_qualname = interface_qualname
+        self.date_transformed_type = date_transformed_type
         self.prepared: PreparedInterfaces = {}
         self.possible_interface_references: PossibleInterfaceReferences = {}
         self.interface_inheritances: PossibleInterfaceReferences = {}
@@ -158,7 +168,15 @@ class Parser:
         ) -> Tuple[Union[str, PossibleInterfaceReference], List[str]]:
             type_value = "UNKNOWN"
             possible_interface_references: List[str] = []
-            if isinstance(node, astroid.Name):
+
+            if (
+                isinstance(node, astroid.Attribute)
+                and f"{node.expr.name}.{node.attrname}" in SUPPORTED_DATE_TYPES
+            ):
+                # Support for datetime.datetime and datetime.date
+                type_value = self.date_transformed_type
+
+            elif isinstance(node, astroid.Name):
                 # When the node is of an astroid.Name type, it could have a
                 # name that exists in our TYPE_MAP, it could have a name that
                 # refers to another class previously defined in the source, or
@@ -170,6 +188,11 @@ class Parser:
                 type_value = TYPE_MAP.get(
                     node.name, PossibleInterfaceReference(node.name)
                 )
+                if (
+                    isinstance(type_value, PossibleInterfaceReference)
+                    and node.name in SUPPORTED_DATE_TYPES
+                ):
+                    type_value = self.date_transformed_type
                 if node.name == "Union":
                     warnings.warn(
                         "Came across an annotation for Union without any indexed types!"
