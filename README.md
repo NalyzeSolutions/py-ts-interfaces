@@ -91,7 +91,7 @@ You may also use the following arguments:
 - `-a, --append`: by default each run will overwrite the output file. this flag
   allows only appends. Be warned, duplicate interfaces are not tested.
 - `-e, --export`: whether the interface definitions should be prepended with `export`;
-- `-dt, --date-type`: defined the type dates should be tranformed in, (default: `string`);
+- `-dt, --date-type`: defines how date types should be tranformed to, (default: `string`);
 
 3. The resulting file will look like this:
 
@@ -254,9 +254,6 @@ Examples with below python class:
 ```python
 from dataclasses import dataclass
 from datetime import datetime, date
-# datetime and date have to be imported this way and not with:
-# import datetime
-# created_at: datetime.datetime
 
 from python_to_typescript_interfaces import Interface
 

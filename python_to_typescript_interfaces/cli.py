@@ -61,11 +61,9 @@ def get_args_namespace() -> argparse.Namespace:
         "-dt, --date-type",
         type=str,
         dest="date_transformed_type",
-        help="defined the type dates should be tranformed in, (default: %(default)s)",
+        help="defines how date types should be tranformed to, (default: %(default)s)",
         choices=["string", "number", "Date"],
         default="string",
-        const="string",
-        nargs="?",
     )
     return argparser.parse_args()
 

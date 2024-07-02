@@ -587,6 +587,24 @@ TEST_DATE_DATE = """
     class Foo(Interface):
         aaa: date
 """
+TEST_DATE_DATETIME_DATETIME = """
+    import datetime
+    from dataclasses import dataclass
+    from python_to_typescript_interfaces import Interface
+
+    @dataclass
+    class Foo(Interface):
+        aaa: datetime.datetime
+"""
+TEST_DATE_DATETIME_DATE = """
+    import datetime
+    from dataclasses import dataclass
+    from python_to_typescript_interfaces import Interface
+
+    @dataclass
+    class Foo(Interface):
+        aaa: datetime.date
+"""
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -629,6 +647,42 @@ TEST_DATE_DATE = """
             {"Foo": {"aaa": "Date"}},
             """export interface Foo {\n    aaa: Date;\n}\n""",
         ),
+        (
+            TEST_DATE_DATETIME_DATETIME,
+            "string",
+            {"Foo": {"aaa": "string"}},
+            """export interface Foo {\n    aaa: string;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME_DATE,
+            "string",
+            {"Foo": {"aaa": "string"}},
+            """export interface Foo {\n    aaa: string;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME_DATETIME,
+            "number",
+            {"Foo": {"aaa": "number"}},
+            """export interface Foo {\n    aaa: number;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME_DATE,
+            "number",
+            {"Foo": {"aaa": "number"}},
+            """export interface Foo {\n    aaa: number;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME_DATETIME,
+            "Date",
+            {"Foo": {"aaa": "Date"}},
+            """export interface Foo {\n    aaa: Date;\n}\n""",
+        ),
+        (
+            TEST_DATE_DATETIME_DATE,
+            "Date",
+            {"Foo": {"aaa": "Date"}},
+            """export interface Foo {\n    aaa: Date;\n}\n""",
+        ),
     ],
 )
 def test_parser_parse_date_types(
@@ -650,6 +704,8 @@ def test_parser_parse_date_types(
     [
         ("foo: List[datetime]", ("foo", "Array<string>")),
         ("bar: Tuple[date, int]", ("bar", "[string, number]")),
+        ("foo: List[datetime.datetime]", ("foo", "Array<string>")),
+        ("bar: Tuple[datetime.date, int]", ("bar", "[string, number]")),
     ],
 )
 def test_parse_annassign_node_with_datetime_types(

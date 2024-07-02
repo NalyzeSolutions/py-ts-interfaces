@@ -32,6 +32,8 @@ TYPE_MAP: Dict[str, str] = {
 SUPPORTED_DATE_TYPES: List[str] = [
     "datetime",
     "date",
+    "datetime.datetime",
+    "datetime.date",
 ]
 
 SUBSCRIPT_FORMAT_MAP: Dict[str, str] = {
@@ -166,7 +168,15 @@ class Parser:
         ) -> Tuple[Union[str, PossibleInterfaceReference], List[str]]:
             type_value = "UNKNOWN"
             possible_interface_references: List[str] = []
-            if isinstance(node, astroid.Name):
+
+            if (
+                isinstance(node, astroid.Attribute)
+                and f"{node.expr.name}.{node.attrname}" in SUPPORTED_DATE_TYPES
+            ):
+                # Support for datetime.datetime and datetime.date
+                type_value = self.date_transformed_type
+
+            elif isinstance(node, astroid.Name):
                 # When the node is of an astroid.Name type, it could have a
                 # name that exists in our TYPE_MAP, it could have a name that
                 # refers to another class previously defined in the source, or
