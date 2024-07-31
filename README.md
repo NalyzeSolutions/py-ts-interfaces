@@ -192,6 +192,15 @@ class Animal(Interface, Enum):
    CAT = "cat"
 ```
 
+> [!CAUTION]
+>
+> Adding `dataclasses.dataclass` decorator to `Enum`
+> and its subclasses is not supported. It will not raise any errors,
+> but it will produce very strange results at runtime, such as members
+> being equal to each other. Workaround would be to manipulate their value directly.
+>
+> See: https://github.com/python/cpython/issues/114803
+
 ### Troubleshooting with Enum and sqlalchemy
 
 If you want to use Enums with `Interface` class in `sqlalchemy`, you will have an error saying that the type is `unhashable`. To avoid this, and make your Enums working with `sqlalchemy` you need to add a `__hash__` like bellow:
