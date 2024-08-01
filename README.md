@@ -14,7 +14,6 @@
 - [Why define the types in Python instead of TypeScript?](#why-define-the-types-in-python-instead-of-typescript)
 - [Supported Type Mappings](#supported-type-mappings)
 - [Supported Enum](#supported-enum)
-  - [Troubleshooting with Enum and sqlalchemy](#troubleshooting-with-enum-and-sqlalchemy)
 - [Support for inheritance](#support-for-inheritance)
 - [Support for datetime and date](#support-for-datetime-and-date)
 - [Planned Supported Mappings](#planned-supported-mappings)
@@ -186,7 +185,7 @@ from enum import Enum
 
 from python_to_typescript_interfaces import Interface
 
-@dataclass
+@dataclass(eq=False)
 class Animal(Interface, Enum):
    DOG = "dog"
    CAT = "cat"
@@ -194,26 +193,16 @@ class Animal(Interface, Enum):
 
 > [!CAUTION]
 >
-> Adding `dataclasses.dataclass` decorator to `Enum`
-> and its subclasses is not supported. It will not raise any errors,
-> but it will produce very strange results at runtime, such as members
-> being equal to each other. Workaround would be to manipulate their value directly.
+> Adding `dataclasses.dataclass` decorator to `Enum` and its subclasses is not supported.
+> It will override existing `__eq__` method which results to unexpected behaviour:
 >
-> See: https://github.com/python/cpython/issues/114803
-
-### Troubleshooting with Enum and sqlalchemy
-
-If you want to use Enums with `Interface` class in `sqlalchemy`, you will have an error saying that the type is `unhashable`. To avoid this, and make your Enums working with `sqlalchemy` you need to add a `__hash__` like bellow:
-
-```python
-@dataclass
-class AnimalSpecies(Interface, Enum):
-   DOG = "dog"
-   CAT = "cat"
-
-   def __hash__(self):
-      return hash(self.name)
-```
+> - members being equal to each other
+> - class becoming unhashable, making it impossible to use with sqlalchemy
+>
+> Workaround is to specify `@dataclass(eq=False)` to avoid the overriding of `__eq__` method
+>
+> https://github.com/python/cpython/issues/114803 \
+> https://docs.python.org/3/library/dataclasses.html#module-contents
 
 ## Support for inheritance
 
